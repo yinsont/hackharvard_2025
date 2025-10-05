@@ -11,11 +11,11 @@ L.Icon.Default.mergeOptions({
   shadowUrl: "https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png",
 });
 
-function ClickHandler({ onClick }) {
+function ClickHandler({ onClick, gameMode }) {
   useMapEvents({
     click(e) {
       const { lat, lng } = e.latlng;
-      onClick(lat, lng);
+      onClick(lat, lng, gameMode);
     },
   });
   return null;
@@ -24,21 +24,32 @@ function ClickHandler({ onClick }) {
 const Map = () => {
   const [coords, setCoords] = useState(null);
   const [country, setCountry] = useState(null);
+  const [gameMode, setGameMode] = useState(false); // Game mode toggle
+  const [isCorrect, setIsCorrect] = useState(null); // Check if answer is correct
 
-  const handleClick = async (lat, lng) => {
-    setCoords([lat, lng]);
+  const handleClick = async (lat, lng, gameMode) => {
+    if (!gameMode) {
+      // Explore Mode: just get the coordinates and country
+      setCoords([lat, lng]);
 
-    console.log(`Clicked coordinates: ${lat}, ${lng}`);
+      console.log(`Explore Mode - Clicked coordinates: ${lat}, ${lng}`);
 
-    // 🌍 Fetch location info from OpenStreetMap (Nominatim)
-    const response = await fetch(
-      `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`
-    );
-    const data = await response.json();
+      const response = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}`
+      );
+      const data = await response.json();
+      const countryName = data.address?.country || "Unknown";
+      setCountry(countryName);
+      console.log("Explore Mode - Country:", countryName);
+    } else {
+      // Game Mode: we can keep this empty for now, just for structure
+      console.log("Game Mode clicked");
+    }
+  };
 
-    const countryName = data.address?.country || "Unknown";
-    console.log("Country:", countryName);
-    setCountry(countryName);
+  const toggleGameMode = () => {
+    setGameMode(!gameMode);
+    setIsCorrect(null); // Reset the game state when toggling
   };
 
   return (
@@ -53,25 +64,62 @@ const Map = () => {
           attribution='&copy; <a href="https://cartodb.com/">CartoDB</a>'
           url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
         />
-        <ClickHandler onClick={handleClick} />
-        {coords && <Marker position={coords} />}
+        <ClickHandler onClick={handleClick} gameMode={gameMode} />
+        {coords && !gameMode && <Marker position={coords} />}
       </MapContainer>
 
-      {/* Display selected country */}
-      {country && (
+      {/* Toggle button outside of MapContainer */}
+      <button
+        onClick={toggleGameMode}
+        style={{
+          position: "fixed", // Changed to fixed positioning
+          top: 10,
+          left: 10,
+          padding: "10px 20px",
+          background: "rgba(0, 0, 0, 0.6)",
+          color: "#fff",
+          border: "none",
+          borderRadius: "5px",
+          zIndex: 1000, // Make sure it's on top of other elements
+        }}
+      >
+        {gameMode ? "Exit Game Mode" : "Start Game Mode"}
+      </button>
+
+      {/* Explore Mode UI */}
+      {!gameMode && country && (
         <div
           style={{
-            position: "absolute",
-            bottom: 10,
+            position: "fixed",
+            bottom: 50,
             left: 10,
-            background: "rgba(0,0,0,0.6)",
+            background: "rgba(0, 0, 0, 0.6)",
             color: "#fff",
             padding: "8px 12px",
             borderRadius: "6px",
             fontSize: "14px",
           }}
         >
+          Coordinates: {coords[0]}, {coords[1]} <br />
           Country: {country}
+        </div>
+      )}
+
+      {/* Result after guess (currently disabled since gameMode is empty) */}
+      {isCorrect !== null && (
+        <div
+          style={{
+            position: "fixed",
+            bottom: 10,
+            left: 10,
+            background: "rgba(0, 0, 0, 0.6)",
+            color: "#fff",
+            padding: "8px 12px",
+            borderRadius: "6px",
+            fontSize: "14px",
+          }}
+        >
+          {isCorrect ? "Correct!" : "Oops, try again!"}
         </div>
       )}
     </div>
